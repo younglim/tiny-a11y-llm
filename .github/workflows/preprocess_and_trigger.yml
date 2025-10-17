@@ -41,7 +41,7 @@ jobs:
 
           repo_id = "younglim/a11y-dataset"
           print(f"📤 Uploading merged dataset to {repo_id}...")
-          merged.push_to_hub(repo_id, private=False)
+          merged.push_to_hub(repo_id, private=False, commit_message="Auto-update from GitHub Actions", revision="main")
           print("✅ Dataset uploaded successfully.")
 
           print("🚀 Triggering Hugging Face GPU fine-tuning job...")
