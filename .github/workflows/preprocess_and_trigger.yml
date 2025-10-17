@@ -1,0 +1,58 @@
+name: Preprocess + Trigger Hugging Face Fine-tune
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0"  # Weekly retrain
+
+jobs:
+  prepare-dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install datasets huggingface_hub markdown-it-py
+
+      - name: Fetch WCAG and MDN data
+        run: |
+          python data/fetch_wcag.py
+          python data/fetch_mdn.py
+
+      - name: Upload dataset to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'EOF'
+          from datasets import load_from_disk
+          from huggingface_hub import HfApi
+
+          print("🔄 Loading local datasets...")
+          ds1 = load_from_disk("datasets/wcag_prepared")
+          ds2 = load_from_disk("datasets/mdn_prepared")
+          merged = ds1.concatenate(ds2)
+
+          repo_id = "younglim/a11y-dataset"
+          print(f"📤 Uploading merged dataset to {repo_id}...")
+          merged.push_to_hub(repo_id, private=False)
+          print("✅ Dataset uploaded successfully.")
+
+          print("🚀 Triggering Hugging Face GPU fine-tuning job...")
+          api = HfApi(token="${{ secrets.HF_TOKEN }}")
+          job = api.create_training_job(
+              job_name="a11y-finetune",
+              model_id="deepseek-ai/deepseek-coder-1.3b-instruct",
+              dataset=repo_id,
+              training_file="train/fine_tune.py",
+              hub_model_id="younglim/tiny-a11y-model",
+              instance_type="A10G",
+          )
+          print("🎉 Training job started:", job)
+          EOF
