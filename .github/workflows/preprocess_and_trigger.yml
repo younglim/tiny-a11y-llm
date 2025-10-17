@@ -1,9 +1,9 @@
-name: Preprocess + Trigger Hugging Face Fine-tune
+name: Preprocess and Upload Hugging Face Dataset
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0"  # Weekly retrain
+    - cron: "0 0 * * 0"  # Weekly dataset update
 
 jobs:
   prepare-dataset:
@@ -26,19 +26,18 @@ jobs:
           python data/fetch_wcag.py
           python data/fetch_mdn.py
 
-      - name: Upload dataset to Hugging Face Hub
+      - name: Upload merged dataset to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'EOF'
           from datasets import load_from_disk, concatenate_datasets
-          from huggingface_hub import HfApi
 
           print("🔄 Loading local datasets...")
-          ds1 = load_from_disk("datasets/wcag_prepared")   # should be a Dataset
-          ds2 = load_from_disk("datasets/mdn_prepared")    # should be a Dataset
+          ds1 = load_from_disk("datasets/wcag_prepared")   # Dataset object
+          ds2 = load_from_disk("datasets/mdn_prepared")    # Dataset object
 
-          # Correct way to merge datasets
+          # Merge datasets
           merged = concatenate_datasets([ds1, ds2])
 
           repo_id = "younglim/a11y-dataset"
@@ -50,16 +49,4 @@ jobs:
               revision="main"
           )
           print("✅ Dataset uploaded successfully.")
-
-          print("🚀 Triggering Hugging Face GPU fine-tuning job...")
-          api = HfApi(token="${{ secrets.HF_TOKEN }}")
-          job = api.create_training_job(
-              job_name="a11y-finetune",
-              model_id="deepseek-ai/deepseek-coder-1.3b-instruct",
-              dataset=repo_id,
-              training_file="train/fine_tune.py",
-              hub_model_id="younglim/tiny-a11y-model",
-              instance_type="A10G",
-          )
-          print("🎉 Training job started:", job)
           EOF
