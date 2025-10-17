@@ -1,0 +1,30 @@
+name: Fine-tune DeepSeek-Coder
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0"  # weekly retrain
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install deps
+        run: |
+          pip install torch transformers datasets peft huggingface_hub markdown-it-py
+
+      - name: Train and Push
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python data/fetch_wcag.py
+          python data/fetch_mdn.py
+          python train/fine_tune.py
