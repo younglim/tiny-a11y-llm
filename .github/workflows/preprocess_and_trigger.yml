@@ -31,17 +31,24 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'EOF'
-          from datasets import load_from_disk
+          from datasets import load_from_disk, concatenate_datasets
           from huggingface_hub import HfApi
 
           print("🔄 Loading local datasets...")
-          ds1 = load_from_disk("datasets/wcag_prepared")
-          ds2 = load_from_disk("datasets/mdn_prepared")
-          merged = ds1.concatenate(ds2)
+          ds1 = load_from_disk("datasets/wcag_prepared")   # should be a Dataset
+          ds2 = load_from_disk("datasets/mdn_prepared")    # should be a Dataset
+
+          # Correct way to merge datasets
+          merged = concatenate_datasets([ds1, ds2])
 
           repo_id = "younglim/a11y-dataset"
           print(f"📤 Uploading merged dataset to {repo_id}...")
-          merged.push_to_hub(repo_id, private=False, commit_message="Auto-update from GitHub Actions", revision="main")
+          merged.push_to_hub(
+              repo_id,
+              private=False,
+              commit_message="Auto-update from GitHub Actions",
+              revision="main"
+          )
           print("✅ Dataset uploaded successfully.")
 
           print("🚀 Triggering Hugging Face GPU fine-tuning job...")
